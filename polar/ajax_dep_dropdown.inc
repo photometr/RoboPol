@@ -43,7 +43,7 @@ function polar_form_get($form, &$form_state) {
     $form['access_fieldset'] = array(
       '#type' => 'fieldset',
       '#title' => t($error_text),
-      '#description' => t("Please contact RoboPol team to get the access."),
+      '#description' => t("Please <a href='http://robopol.org/user/login'>login in</a> or contact the RoboPol team to get the access."),
       '#collapsible' => FALSE,
       '#collapsed' => FALSE,
       
