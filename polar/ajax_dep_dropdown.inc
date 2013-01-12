@@ -38,26 +38,21 @@
 function polar_form_get($form, &$form_state) {
   //check if user allowed to add the database
   global $user;
-  if (! in_array("phot_db_maintainer", $user->roles)) {
+  if (! in_array("robopol", $user->roles)) {
     $error_text = '<font size="3" color="red">Only registered users are able to access the data!</font>';
     $form['access_fieldset'] = array(
       '#type' => 'fieldset',
       '#title' => t($error_text),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
+      '#description' => t("Please contact RoboPol team to get the access."),
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+      
     );
     return $form;
   }
-  //drupal_add_js('misc/jscharts/jquery.min.js');
-  ////drupal_add_js('misc/jscharts/plot.js');
-  //drupal_add_js('misc/jscharts/jquery.jqplot.min.js');
-  //drupal_add_js('misc/jscharts/jqplot.dateAxisRenderer.min.js');
-  //drupal_add_js('misc/jscharts/jqplot.cursor.min.js');
-  //drupal_add_js('misc/jscharts/jqplot.highlighter.min.js');
-  //drupal_add_js('misc/jscharts/jquery.jqplot.min.css');
   drupal_add_js('misc/dygraphs/dygraph-dev.js');
-  //drupal_add_js('misc/dygraphs/data.js');
-  //drupal_add_js('misc/dygraphs/plot_js.js');
+  drupal_add_css(drupal_get_path('module', 'Fermi') . '/JDreplwidth.css', array('group' => CSS_DEFAULT, 'type' => 'file'));
+
   // Get the list of options to populate the first dropdown.
   $blazars_names = blazars_list_load();
 
@@ -86,29 +81,10 @@ function polar_form_get($form, &$form_state) {
     // ajax_example_dependent_dropdown in ajax_example.module for more details.
     '#ajax' => array(
       'callback' => 'ajax_name_dropdown_callback',
-      'wrapper' => 'dropdown-second-replace',//dropdown-second-replace
+      'wrapper' => 'JD-replace',//dropdown-second-replace
     ),
   );
 
-  $form['band_fieldset'] = array(
-    '#type' => 'fieldset',
-    '#prefix' => '<div id="dropdown-second-replace">',
-    '#suffix' => '</div>',
-  );
-  $form['band_fieldset']['band'] = array(
-    '#type' => 'select',
-    '#title' => 'Band',
-    '#attributes' => array('class' => array('enabled-for-ajax')),
-    // When the form is rebuilt during processing (either AJAX or multistep),
-    // the $selected variable will now have the new value and so the options
-    // will change.
-    '#options' => bands_list_load($selected),
-    '#default_value' => isset($form_state['values']['band']) ? $form_state['values']['band'] : '',
-    '#ajax' => array(
-      'callback' => 'ajax_band_dropdown_callback',
-      'wrapper' => 'JD-replace',
-    ),
-  );
   $form['JD_fieldset'] = array(
     '#type' => 'fieldset',
     '#prefix' => '<div id="JD-replace">',
@@ -116,28 +92,31 @@ function polar_form_get($form, &$form_state) {
   );
   $form['JD_fieldset']['JDstart'] = array(
     '#type'  => 'textfield',
-    '#title' => t('От JD:'),
+    '#title' => t('From JD:'),
     '#size'  => 10,
     '#attributes' => array('class' => array('enabled-for-ajax')),
-    //'#value' => isset($form_state['values']['band']) ? $form_state['values']['band'] : '',
     '#default_value' => '',
+    '#prefix' => '<div id="JD-start" class="datesform">',
+    '#suffix' => '</div>',
   );
   $form['JD_fieldset']['JDend'] = array(
     '#type'  => 'textfield',
-    '#title' => t('До JD:'),
+    '#title' => t('To JD:'),
     '#size'  => 10,
     '#description' => t('leave fields blank for the whole dataset'),
+    '#prefix' => '<div id="JD-end" class="datesform">',
+    '#suffix' => '</div>',
   );
   $form['JD_fieldset']['plot'] = array(
     '#prefix' => '<div id="plot_div">',
     '#suffix' => '</div>',
-    //'#markup' => get_plot_code($form, $form_state),
+    //'#markup' => get_plot_code_polar($form, $form_state),
     //'#markup' => '<div id="chart3" style="margin-top:20px; margin-left:20px; width:500px; height:300px;"></div>',
     '#attributes' => array('class' => array('enabled-for-ajax')),
   );
   $form['JD_fieldset']['ASCII'] = array(
     '#type' => 'submit',
-    '#value' => t('Download ASCII'),
+    '#value' => t('Load data'),
     '#submit' => array('polar_form_get_ASCII_submit'),
     // This class allows attached js file to override the disabled attribute,
     // since it's not necessary in ajax-enabled form.
@@ -152,8 +131,6 @@ function polar_form_get($form, &$form_state) {
 
   // Disable band if a selection has not been made on dropdown_first.
   if (empty($form_state['values']['name'])) {
-    $form['band_fieldset']['band']['#disabled'] = TRUE;
-    $form['band_fieldset']['band']['#description'] = t('Choose the blazar first');
     $form['JD_fieldset']['JDstart']['#disabled'] = TRUE;
     $form['JD_fieldset']['JDend']['#disabled'] = TRUE;
     $form['JD_fieldset']['ASCII']['#disabled'] = TRUE;
@@ -172,27 +149,9 @@ function polar_form_get($form, &$form_state) {
  *   Renderable array (the second dropdown).
  */
 function ajax_name_dropdown_callback($form, $form_state) {
-  //$form['band_fieldset']['JDstart']['#value'] = NULL;
-  //$form['band_fieldset']['plot']['#markup'] = get_plot_code();
-  return $form['band_fieldset'];//['band'];
+  $form['JD_fieldset']['plot']['#markup'] = get_plot_code_polar($form, $form_state);
+  return $form['JD_fieldset'];
 }
-
-/**
- * Selects just the second dropdown to be returned for re-rendering.
- *
- * @return
- *   Renderable array (the second dropdown).
- */
-function ajax_band_dropdown_callback($form, $form_state) {
-  if ($form_state['values']['band']==0) {
-    return NULL;
-  }
-  else {
-    $form['JD_fieldset']['plot']['#markup'] = get_plot_code($form, $form_state);
-    return $form['JD_fieldset'];
-  }
-}
-
 
 /**
  * @} End of "defgroup polar".

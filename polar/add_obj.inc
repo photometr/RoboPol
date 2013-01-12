@@ -39,11 +39,12 @@
 function polar_form_add_object($form, &$form_state, $no_js_use = FALSE) {
   //check if user allowed to add the database
   global $user;
-  if (! in_array("phot_db_maintainer", $user->roles)) {
+  if (! in_array("robopol", $user->roles)) {
     $error_text = '<font size="3" color="red">Only registered users are able to access the data!</font>';
     $form['access_fieldset'] = array(
       '#type' => 'fieldset',
       '#title' => t($error_text),
+      '#description' => t("Please contact RoboPol team to get the access."),
       '#collapsible' => TRUE,
       '#collapsed' => TRUE,
     );

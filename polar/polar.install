@@ -27,65 +27,6 @@ function polar_install() {
   db_insert('polar_objects')
     ->fields($fields)
     ->execute();
-
-  // Fill filters
-//   $fields = array(
-//     'id'    => '1',
-//     'band' => 'B',
-//   );
-//   db_insert('polar_bands')
-//     ->fields($fields)
-//     ->execute();
-//   $fields = array(
-//     'id'    => '2',
-//     'band' => 'V',
-//   );
-//   db_insert('polar_bands')
-//     ->fields($fields)
-//     ->execute();
-//   $fields = array(
-//     'id'    => '3',
-//     'band' => 'Rc',
-//   );
-//   db_insert('polar_bands')
-//     ->fields($fields)
-//     ->execute();
-//   $fields = array(
-//     'id'    => '4',
-//     'band' => 'Ic',
-//   );
-//   db_insert('polar_bands')
-//     ->fields($fields)
-//     ->execute();
-//   $fields = array(
-//     'id'    => '5',
-//     'band' => 'J',
-//   );
-//   db_insert('polar_bands')
-//     ->fields($fields)
-//     ->execute();
-//   $fields = array(
-//     'id'    => '6',
-//     'band' => 'H',
-//   );
-//   db_insert('polar_bands')
-//     ->fields($fields)
-//     ->execute();
-//   $fields = array(
-//     'id'    => '7',
-//     'band' => 'K',
-//   );
-//   db_insert('polar_bands')
-//     ->fields($fields)
-//     ->execute();
-  $fields = array(
-    'id'    => '8',//FIXME change if statement in polar_entry_insert(..)
-//of polar.module if you change this value
-    'band' => 'Pol',
-  );
-  db_insert('polar_bands')
-    ->fields($fields)
-    ->execute();
 }
 
 /**
@@ -135,25 +76,6 @@ function polar_schema() {
     ),
   );
 
-  $schema['polar_bands'] = array(
-    'description' => 'Stores bandpasses.',
-    'fields' => array(
-      'id' => array(
-        'type' => 'serial',
-        'not null' => TRUE,
-        'description' => 'Primary Key: Unique band ID.',
-      ),
-      'band' => array(
-        'type' => 'varchar',
-        'length' => 2048,
-        'not null' => TRUE,
-        'default' => '',
-        'description' => 'Bandpass name',
-      )
-    ),
-    'primary key' => array('id'),
-  );
-
   $schema['polar_data'] = array(
     'description' => 'Stores photometry data.',
     'fields' => array(
@@ -173,11 +95,6 @@ function polar_schema() {
         'size' => 'big',
         'not null' => TRUE,
         'description' => 'Julian date of the observation.',
-      ),
-      'band_id' => array(
-        'type' => 'int',
-        'not null' => TRUE,
-        'description' => "Blazar ID from {polar_bands}.id",
       ),
       'mag' => array(
         'type' => 'float',
@@ -202,16 +119,12 @@ function polar_schema() {
         'table'   => 'polar_objects',
         'columns' => array('blazar_id' => 'id'),
       ),
-      'band_id' => array(
-        'table'   => 'polar_bands',
-        'columns' => array('band_id' => 'id'),
-      ),
       'creator_id' => array(
         'table'   => 'users',
         'columns' => array('creator_id' => 'uid'),
       ),
     ),
-    'primary key' => array('jd','blazar_id','band_id'),
+    'primary key' => array('jd','blazar_id'),
   );
 
   $schema['polar_polar'] = array(

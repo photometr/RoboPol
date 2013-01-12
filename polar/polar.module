@@ -117,7 +117,6 @@ function polar_menu() {
  */
 function polar_data_load_phot($form, $form_state) {
   $blazar_id = $form_state['values']['name'];
-  $band      = $form_state['values']['band'];
   $JDstart   = $form_state['values']['JDstart'];
   $JDend     = $form_state['values']['JDend'];
 
@@ -132,9 +131,6 @@ function polar_data_load_phot($form, $form_state) {
          ->condition('jd', $JDstart,'>=')
          ->condition('jd', $JDend,'<=');
 
-  if (!empty($band)) {
-    $select->condition('band_id', $band,'=');
-  }
   // Return the result in object format.
   return $select->execute()->fetchAll();
 }
@@ -192,59 +188,31 @@ function polar_file_download($filename, $mimetype='application/octet-stream') {
  * Get ascii data from the database.
  */
 function polar_form_get_ASCII_submit($form, &$form_state) {
-  if ($form_state['values']['band'] == 0) {
-    drupal_set_message(t('You have to select a band!'),'error');
-    return NULL;
-  }
-  if ($form_state['values']['band'] == 8) {
-    //polarimetry
-    //obtaining response from DB
-    if ($entries = polar_data_load_polar($form, $form_state)) {
-      $rows = array();
-      foreach ($entries as $entry) {
-        $row_el = sprintf("%5.5f ", $entry->jd);
-        $row_el = $row_el.sprintf("%9s ",sprintf("%3.3f ", $entry->p));
-        $row_el = $row_el.sprintf("%8s ",sprintf("%3.3f ", $entry->p_err));
-        $row_el = $row_el.sprintf("%10s ",sprintf("%5.3f ", $entry->pa));
-        $row_el = $row_el.sprintf("%8s ",sprintf("%3.3f ", $entry->pa_err));
-        $row_el = $row_el.sprintf("%10s\r\n", $entry->tel);
-        $rows[] = $row_el;
-      }
+  //polarimetry
+  //obtaining response from DB
+  if ($entries = polar_data_load_polar($form, $form_state)) {
+    $rows = array();
+    foreach ($entries as $entry) {
+      $row_el = sprintf("%5.5f ", $entry->jd);
+      $row_el = $row_el.sprintf("%9s ",sprintf("%3.3f ", $entry->p));
+      $row_el = $row_el.sprintf("%8s ",sprintf("%3.3f ", $entry->p_err));
+      $row_el = $row_el.sprintf("%10s ",sprintf("%5.3f ", $entry->pa));
+      $row_el = $row_el.sprintf("%8s ",sprintf("%3.3f ", $entry->pa_err));
+      $row_el = $row_el.sprintf("%10s\r\n", $entry->tel);
+      $rows[] = $row_el;
     }
-    else {
-      drupal_set_message(t('No entries in DB available for this query.'));
-    }
-    $output = "";
-    foreach ($rows as $row) {
-      $output = $output.$row;
-    }   
   }
   else {
-    //photometry
-    //obtaining response from DB
-    if ($entries = polar_data_load_phot($form, $form_state)) {
-      $rows = array();
-      foreach ($entries as $entry) {
-        //$variables = get_object_vars($entry);
-        $row_el = sprintf("%5.5f ", $entry->jd);
-        $row_el = $row_el.sprintf("%9s ",sprintf("%2.3f ", $entry->mag));
-        $row_el = $row_el.sprintf("%8s ",sprintf("%2.3f ", $entry->mag_err));
-        $row_el = $row_el.sprintf("%10s\r\n", $entry->tel);
-        $rows[] = $row_el;
-      }
-    }
-    else {
-      drupal_set_message(t('No entries in DB available for this query.'));
-    }
-    $output = "";
-    foreach ($rows as $row) {
-      $output = $output.$row;
-    }
+    drupal_set_message(t('No entries in DB available for this query.'));
   }
-  $filter = $form['band_fieldset']['band']['#options'][$form_state['values']['band']];
+  $output = "";
+  foreach ($rows as $row) {
+    $output = $output.$row;
+  }   
+
   $blazar_name = $form['name_fieldset']['name']['#options'][$form_state['values']['name']];
   //creating a file with data
-  $filepath = file_unmanaged_save_data($output, $destination = "public://".$blazar_name.$filter.".dat", $replace = FILE_EXISTS_REPLACE);
+  $filepath = file_unmanaged_save_data($output, $destination = "public://".$blazar_name.".dat", $replace = FILE_EXISTS_REPLACE);
   polar_file_download($filepath);
 }
 
@@ -267,12 +235,6 @@ function old_polar_form_get($form, &$form_state) {//FIXME remove it!!!!!!!!!!!!
       'callback' => 'ajax_example_dependent_dropdown_callback',
       'wrapper' => 'dropdown-second-replace',
     ),
-  );
-  $form['band'] = array(
-    '#type'  => 'textfield',
-    '#title' => t('Band:'),
-    '#description' => t('Leave blank, if you need all bands'),
-    '#size'  => 2,
   );
   $form['JDstart'] = array(
     '#type'  => 'textfield',
@@ -328,92 +290,20 @@ function blazars_list_load() {
   return $blazars_with_id;
 }
 
-/** Loading list of filters(bands) for which we have
- a data in the DB for a given blazar, that was selected
- in the first dropdown list */
-function bands_list_load($blazar_id) {
-  // Read 'band' field for $blazar_name from the 'polar_data' table.
-  $query = "SELECT distinct band, polar_bands.id FROM polar_data";
-  $query = $query." INNER JOIN polar_bands ON polar_data.band_id = polar_bands.id";
-  $result = db_query($query." WHERE blazar_id = '".$blazar_id."'");
-  
-  //return $result->fetchCol();
-  $bands_with_id = array();
-  $entries = $result->fetchAll();
-  foreach ($entries as $entry){
-    $bands_with_id[$entry->id] = $entry->band;
-  }
-  //check for polarimetric data for this blazar
-  $query = "SELECT COUNT(jd) FROM polar_polar WHERE blazar_id = '";
-  $query = $query.$blazar_id."'";
-  $result = db_query($query);
-  if ($result->fetchField() > 0){
-    //WARNING this value 8 defined in polar.install, it can be changed
-    $bands_with_id[8] = "Pol";
-  }
-  //Add an empty line to the bands list FIXME remake it in a right way
-  //otherwise it's impossible to select single value in the dropdown or the first one
-  if (count($bands_with_id) > 0){
-    //change order to show empty line first
-    $tmp_bands_with_id[0] = " ";
-    foreach (array_keys($bands_with_id) as $key){
-      $tmp_bands_with_id[$key] = $bands_with_id[$key];
-    }
-    $bands_with_id = $tmp_bands_with_id;
-  }
-  return $bands_with_id;
-}
-
-/** Loading the whole list of filters(bands)
-*/
-function bands_list_load_all() {
-  // Read 'band' field for $blazar_name from the 'polar_data' table.
-  $query = "SELECT distinct band, id FROM polar_bands";
-  $result = db_query($query);
-
-  $bands_with_id = array();
-  $entries = $result->fetchAll();
-  foreach ($entries as $entry){
-    $bands_with_id[$entry->id] = $entry->band;
-  }
-  return $bands_with_id;
-}
-
-/** Creates javascript with data for dygraphs library
-    in case of photometric data request
-*/
-function get_data_for_plot_phot($blazar_id,$band) {
-  $query = "SELECT jd, mag FROM polar_data WHERE blazar_id = '";
-  $query = $query.$blazar_id."' AND band_id = '".$band."'";
-  $entries = db_query($query)->fetchAll();
-  $js_data = '<script type="text/javascript">';
-  $js_data = $js_data.'function data_nolabel(){';
-  $js_data = $js_data.'return "" +';
-  foreach ($entries as $entry){
-    $js_data = $js_data.'"'.$entry->jd.',-'.$entry->mag.'\n" + ';
-  }
-  $js_data = rtrim($js_data,' + ');
-  $js_data = $js_data.';}function data() {';
-  $js_data = $js_data.'return "Date,Magnitude\n" + data_nolabel();';
-  $js_data = $js_data.'}</script>';
-
-  return $js_data;
-}
-
 /** Creates javascript with data for dygraphs library
     in case of polarimetric data request
 */
-function get_data_for_plot_polar($blazar_id,$band) {
+function get_data_for_plot_polar($blazar_id) {
   $js_data = '';
-  $js_data = $js_data.get_data_for_plot_polar_P($blazar_id,$band);
-  $js_data = $js_data.get_data_for_plot_polar_PA($blazar_id,$band);
+  $js_data = $js_data.get_data_for_plot_polar_P($blazar_id);
+  $js_data = $js_data.get_data_for_plot_polar_PA($blazar_id);
   return $js_data;
 }
 
 /** Creates javascript with data for dygraphs library
     gets Polarization degree
 */
-function get_data_for_plot_polar_P($blazar_id,$band) {
+function get_data_for_plot_polar_P($blazar_id) {
   $query = "SELECT jd, p FROM polar_polar WHERE blazar_id = '";
   $query = $query.$blazar_id."'";
   $entries = db_query($query)->fetchAll();
@@ -433,7 +323,7 @@ function get_data_for_plot_polar_P($blazar_id,$band) {
 /** Creates javascript with data for dygraphs library
     gets Polarization position angle
 */
-function get_data_for_plot_polar_PA($blazar_id,$band) {
+function get_data_for_plot_polar_PA($blazar_id) {
   $query = "SELECT jd, pa FROM polar_polar WHERE blazar_id = '";
   $query = $query.$blazar_id."'";
   $entries = db_query($query)->fetchAll();
@@ -450,51 +340,19 @@ function get_data_for_plot_polar_PA($blazar_id,$band) {
   return $js_data;
 }
 
-
-/** Decide which plot code we want
-*/
-function get_plot_code($form, $form_state) {
-  //FIXME change next 2 lines for using id of band
-  $filter = $form['band_fieldset']['band']['#options'][$form_state['values']['band']];
-  if (($filter == "Pol") ){
-    $code = get_plot_code_polar($form, $form_state);
-  }
-  else{
-    $code = get_plot_code_phot($form, $form_state);
-  }
-  return $code;
-}
-
-/** */
-function get_plot_code_phot($form, $form_state) {
-  $blazar_id = $form_state['values']['name'];
-  $band      = $form_state['values']['band'];
-  $code = file_get_contents('./sites/all/modules/polar/plot_js');
-  $txt = get_data_for_plot_phot($blazar_id,$band);
-  $code = $code.$txt;
-  $code = $code.'<div style="float: right; display: none">';
-  $code = $code.'<p>Zoomed: <span id="zoomed">False</span><p/>';
-  $code = $code.'<p>Zoomed X: <span id="zoomedX">False</span><p/>';
-  $code = $code.'<p>Zoomed Y: <span id="zoomedY">False</span><p/></div>';
-  //$code = $code.'<div id="div_g" style="width:600px; height:300px;"></div>';
-  $code = $code.'<div id="div_g" style="margin-top:20px; margin-bottom:20px; margin-left:20px; width:800px; height:400px;"></div>';
-  return $code;
-}
-
 /** */
 function get_plot_code_polar($form, $form_state) {
   $blazar_id = $form_state['values']['name'];
-  $band      = $form_state['values']['band'];
   $code = file_get_contents('./sites/all/modules/polar/plot_js_pol');
-  $txt = get_data_for_plot_polar($blazar_id,$band);
+  $txt = get_data_for_plot_polar($blazar_id);
   $code = $code.$txt;
   $code = $code.'<div style="float: right; display: none">';
   $code = $code.'<p>Zoomed: <span id="zoomed">False</span><p/>';
   $code = $code.'<p>Zoomed X: <span id="zoomedX">False</span><p/>';
   $code = $code.'<p>Zoomed Y: <span id="zoomedY">False</span><p/></div>';
   //$code = $code.'<div id="div_g" style="width:600px; height:300px;"></div>';
-  $code = $code.'<div id="div_gp" style="margin-top:20px; margin-bottom:20px; margin-left:20px; width:800px; height:300px;"></div>';
-  $code = $code.'<div id="div_gpa" style="margin-top:20px; margin-bottom:20px; margin-left:20px; width:800px; height:300px;"></div>';
+  $code = $code.'<div id="div_gp" style="margin-top:20px; margin-bottom:20px; margin-left:20px; width:870px; height:300px;"></div>';
+  $code = $code.'<div id="div_gpa" style="margin-top:20px; margin-bottom:20px; margin-left:20px; width:870px; height:300px;"></div>';
   return $code;
 }
 
@@ -504,11 +362,12 @@ function get_plot_code_polar($form, $form_state) {
 function polar_form_add($form, &$form_state) {
   //check if user allowed to add to the database
   global $user;
-  if (! in_array("phot_db_maintainer", $user->roles)) {
+  if (! in_array("robopol", $user->roles)) {
     $error_text = '<font size="3" color="red">Only registered users are able to access the data!</font>';
     $form['access_fieldset'] = array(
       '#type' => 'fieldset',
       '#title' => t($error_text),
+      '#description' => t("Please contact RoboPol team to get the access."),
       '#collapsible' => TRUE,
       '#collapsed' => TRUE,
     );
@@ -526,11 +385,6 @@ function polar_form_add($form, &$form_state) {
     '#type' => 'select',
     '#options' => blazars_list_load(),
     '#title' => t('Choose blazar name:'),
-  );
-  $form['band'] = array(
-    '#type'  => 'select',
-    '#options' => bands_list_load_all(),
-    '#title' => t('Photometric band:'),
   );
   $form['my_div'] = array(
     '#markup' => $explanation . '<div id="explanationDiv"></div>',
@@ -603,117 +457,6 @@ function pa_ajax_link_response($type = 'ajax') {
 }
 
 /**
- * Save an entry in the database.
- *
- * The underlying function is db_insert().
- *
- * In Drupal 6, this would have been:
- * @code
- *   db_query(
- *     "INSERT INTO {polar} (name, surname, age)
- *       VALUES ('%s', '%s', '%d')",
- *     $entry['name'],
- *     $entry['surname'],
- *     $entry['age']
- *   );
- * @endcode
- *
- * Exception handling is shown in this example. It could be simplified
- * without the try/catch blocks, but since an insert will throw an exception
- * and terminate your application if the exception is not handled, it is best
- * to employ try/catch.
- *
- * @param $entry
- *   An array containing all the fields of the database record.
- *
- * @see db_insert()
- */
-function polar_entry_insert($entry) {
-  global $user;
-  //check if user allowed to add the database
-  if (! in_array("phot_db_maintainer", $user->roles)) {
-    drupal_set_message(t('ask Admin to be added to phot_db_maintainer role'), 'error');
-    return NULL;
-  }
-  $band_id = $entry['band'];
-  if ($band_id == 8){//FIXME dangerous written in polar.install
-    $query = polar_entry_insert_polar($entry);
-  }
-  else{
-    $query = polar_entry_insert_phot($entry);
-  }
-  return $query;
-}
-
-/**
- * Save photometry entry in the database.
- *
- */
-function polar_entry_insert_phot($entry) {
-  global $user;
-  $n_new_rows = 0;
-  $blazar_id = $entry['blazar_name'];
-  $band_id = $entry['band'];
-  //parsing data
-  $data_arr = preg_split("/((?<!\\\|\r)\n)|((?<!\\\)\r\n)/", $entry['data']);
-  foreach ($data_arr as $value) {
-    $value = trim ($value);
-    if ($value == "") continue;
-    $one_line  = preg_split("/[\s,]+/", $value);
-    if ( (count($one_line) < 3)||(count($one_line) > 22) ) {
-      drupal_set_message(t('Data string length must be >= 3 and <= 22'), 'error');
-      return NULL;
-    }
-    if (!(is_numeric($one_line[0]) &&
-          is_numeric($one_line[1]) &&
-          is_numeric($one_line[2]))) {
-      drupal_set_message(t('It seems that you give not numeric data.'), 'error');
-      return NULL;
-    }
-
-    $JD[]       = floatval($one_line[0]); //FIXME change it with smart function
-    $mag[]      = floatval($one_line[1]); //FIXME who understands comma as delimeter
-    $mag_err[]  = floatval($one_line[2]);
-    if(count($one_line) == 4) {
-      //only in case of 4 rows tel is the last one
-      $tel[]      = $one_line[3];
-    }
-    else{
-      $tel[]      = "Unknown";
-    }
-    $n_new_rows = $n_new_rows + 1;
-  }
-
-  if($n_new_rows < 1) return NULL;
-  $trans_value = db_transaction();
-  try {
-    //fill data table
-    for ( $i = 0; $i < count($JD); $i += 1) {
-        $data_entry = array(
-          'creator_id'  => $user->uid,
-          'blazar_id'   => $blazar_id,
-          'jd'          => $JD[$i],
-          'band_id'     => $band_id,
-          'mag'         => $mag[$i],
-          'mag_err'     => $mag_err[$i],
-          'tel'         => $tel[$i],
-        );
-    
-        $query = db_merge('polar_data')
-                   ->key(array('jd'=>$JD[$i],'blazar_id'=>$blazar_id,'band_id'=>$band_id))
-                   ->fields($data_entry);
-        $query->execute();
-    }
-  }
-  catch (Exception $e) {
-    $trans_value->rollback();
-    drupal_set_message(t('db_insert failed. Message = %message, query= %query',
-      array('%message' => $e->getMessage(), '%query' => $e->query_string)), 'error');
-  }
-  return $query;
-}
-
-/**
  * Save photometry entry in the database when submitted with polarimetric data
  * This is very close to polar_entry_insert_phot(), but i think it's
  * better to separate them
@@ -722,7 +465,6 @@ function polar_entry_insert_phot_from_pol($entry,$IsWithMagErr) {
   global $user;
   $n_new_rows = 0;
   $blazar_id = $entry['blazar_name'];
-  $band_id = 3;//FIXME dangerous written in polar.install
 
   //parsing data
   $data_arr = preg_split("/((?<!\\\|\r)\n)|((?<!\\\)\r\n)/", $entry['data']);
@@ -786,14 +528,13 @@ function polar_entry_insert_phot_from_pol($entry,$IsWithMagErr) {
           'creator_id'  => $user->uid,
           'blazar_id'   => $blazar_id,
           'jd'          => $JD[$i],
-          'band_id'     => $band_id,
           'mag'         => $mag[$i],
           'mag_err'     => $mag_err[$i],
           'tel'         => $tel[$i],
         );
     
         $query = db_merge('polar_data')
-                   ->key(array('jd'=>$JD[$i],'blazar_id'=>$blazar_id,'band_id'=>$band_id))
+                   ->key(array('jd'=>$JD[$i],'blazar_id'=>$blazar_id))
                    ->fields($data_entry);
         $query->execute();
     }
@@ -812,11 +553,15 @@ function polar_entry_insert_phot_from_pol($entry,$IsWithMagErr) {
  */
 function polar_entry_insert_polar($entry) {
   global $user;
+  //check if user allowed to add the database
+  if (! in_array("robopol", $user->roles)) {
+    drupal_set_message(t('ask Admin to be added to robopol role'), 'error');
+    return NULL;
+  }
   $IsWithMag = False; //flag to run/not run polar_entry_insert_phot_from_pol()
   $IsWithMagErr = False;
   $n_new_rows = 0;
   $blazar_id = $entry['blazar_name'];
-  $band_id = $entry['band'];
   //parsing data
   $data_arr = preg_split("/((?<!\\\|\r)\n)|((?<!\\\)\r\n)/", $entry['data']);
   foreach ($data_arr as $value) {
@@ -978,10 +723,9 @@ function polar_form_add_submit($form, &$form_state) {
   // Save the submitted entry.
   $entry = array(
     'blazar_name' => $form_state['values']['name'],
-    'band'        => $form_state['values']['band'],
     'data'        => $form_state['values']['data']
   );
-  $return = polar_entry_insert($entry);
+  $return = polar_entry_insert_polar($entry);
   if ($return) {
     //drupal_set_message(t("Created entry @entry", array('@entry' => print_r($entry, TRUE))));
     drupal_set_message(t("Data have been successfully added"));
