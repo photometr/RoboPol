@@ -1,0 +1,7 @@
+name = Polarimetry and photometry archive
+description = Module allowing to save and extract archival polarimetry data.
+package = RoboPol
+core = 7.x
+files[] = polar.test
+
+

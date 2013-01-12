@@ -1,0 +1,286 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the polar module.
+ */
+
+/**
+ * Implements hook_install().
+ *
+ * In Drupal 7, there is no need to install schema using this hook, the schema
+ * is already installed before this hook is called.
+ *
+ * We will create a default entry in the database.
+ *
+ * @see hook_install()
+ * @ingroup polar
+ */
+function polar_install() {
+  // Outside of the .install file we would use drupal_write_record() to
+  // populate the database, but it cannot be used here, so we'll use
+  // db_insert().
+
+  // Add a default entry.
+  $fields = array(
+    'name'    => 'BL Lac',
+  );
+  db_insert('polar_objects')
+    ->fields($fields)
+    ->execute();
+
+  // Fill filters
+//   $fields = array(
+//     'id'    => '1',
+//     'band' => 'B',
+//   );
+//   db_insert('polar_bands')
+//     ->fields($fields)
+//     ->execute();
+//   $fields = array(
+//     'id'    => '2',
+//     'band' => 'V',
+//   );
+//   db_insert('polar_bands')
+//     ->fields($fields)
+//     ->execute();
+//   $fields = array(
+//     'id'    => '3',
+//     'band' => 'Rc',
+//   );
+//   db_insert('polar_bands')
+//     ->fields($fields)
+//     ->execute();
+//   $fields = array(
+//     'id'    => '4',
+//     'band' => 'Ic',
+//   );
+//   db_insert('polar_bands')
+//     ->fields($fields)
+//     ->execute();
+//   $fields = array(
+//     'id'    => '5',
+//     'band' => 'J',
+//   );
+//   db_insert('polar_bands')
+//     ->fields($fields)
+//     ->execute();
+//   $fields = array(
+//     'id'    => '6',
+//     'band' => 'H',
+//   );
+//   db_insert('polar_bands')
+//     ->fields($fields)
+//     ->execute();
+//   $fields = array(
+//     'id'    => '7',
+//     'band' => 'K',
+//   );
+//   db_insert('polar_bands')
+//     ->fields($fields)
+//     ->execute();
+  $fields = array(
+    'id'    => '8',//FIXME change if statement in polar_entry_insert(..)
+//of polar.module if you change this value
+    'band' => 'Pol',
+  );
+  db_insert('polar_bands')
+    ->fields($fields)
+    ->execute();
+}
+
+/**
+ * Implements hook_uninstall().
+ *
+ * As in hook_install, there is no need to uninstall schema, Drupal will do it
+ * for us.
+ *
+ * @see hook_uninstall()
+ * @ingroup polar
+ */
+function polar_uninstall() {
+  // nothing.
+}
+
+
+/**
+ * Implements hook_schema().
+ *
+ * Defines the database tables used by this module.
+ * Remember that the easiest way to create the code for hook_schema is with
+ * the @link http://drupal.org/project/schema schema module @endlink
+ *
+ * @see hook_schema()
+ * @ingroup polar
+ */
+function polar_schema() {
+
+  $schema['polar_objects'] = array(
+    'description' => 'Stores blazars names and additional info.',
+    'fields' => array(
+      'id'  => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique blazar ID.',
+      ),
+      'name' => array(
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'description' => 'Name of the blazar.',
+      ),
+    ),
+    'primary key' => array('id'),
+    'indexes' => array(
+      'name'    => array('name'),
+    ),
+  );
+
+  $schema['polar_bands'] = array(
+    'description' => 'Stores bandpasses.',
+    'fields' => array(
+      'id' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique band ID.',
+      ),
+      'band' => array(
+        'type' => 'varchar',
+        'length' => 2048,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Bandpass name',
+      )
+    ),
+    'primary key' => array('id'),
+  );
+
+  $schema['polar_data'] = array(
+    'description' => 'Stores photometry data.',
+    'fields' => array(
+      'creator_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Creator user's {users}.uid",
+      ),
+      'blazar_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "Blazar ID from {polar_objects}.id",
+      ),
+      'jd' => array(
+        'type' => 'float',
+        'size' => 'big',
+        'not null' => TRUE,
+        'description' => 'Julian date of the observation.',
+      ),
+      'band_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "Blazar ID from {polar_bands}.id",
+      ),
+      'mag' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'description' => 'Stellar magnitude.',
+      ),
+      'mag_err' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'description' => 'Stellar magnitude error.',
+      ),
+      'tel' => array(
+        'type' => 'varchar',
+        'length' => 20,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Telescope name.',
+      ),
+    ),
+    'foreign keys' => array(
+      'blazar_id' => array(
+        'table'   => 'polar_objects',
+        'columns' => array('blazar_id' => 'id'),
+      ),
+      'band_id' => array(
+        'table'   => 'polar_bands',
+        'columns' => array('band_id' => 'id'),
+      ),
+      'creator_id' => array(
+        'table'   => 'users',
+        'columns' => array('creator_id' => 'uid'),
+      ),
+    ),
+    'primary key' => array('jd','blazar_id','band_id'),
+  );
+
+  $schema['polar_polar'] = array(
+    'description' => 'Stores polarimetry data.',
+    'fields' => array(
+      'creator_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'description' => "Creator user's {users}.uid",
+      ),
+      'blazar_id' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'description' => "Blazar ID from {polar_objects}.id",
+      ),
+      'jd' => array(
+        'type' => 'float',
+        'size' => 'big',
+        'not null' => TRUE,
+        'description' => 'Julian date of the observation.',
+      ),
+      'p' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'description' => 'Stellar magnitude.',
+      ),
+      'p_err' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'description' => 'Stellar magnitude error.',
+      ),
+      'pa' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'description' => 'Stellar magnitude.',
+      ),
+      'pa_err' => array(
+        'type' => 'float',
+        'not null' => TRUE,
+        'description' => 'Stellar magnitude error.',
+      ),
+      'tel' => array(
+        'type' => 'varchar',
+        'length' => 2048,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => 'Telescope name.',
+      ),
+    ),
+    'indexes' => array(
+      'jd'         => array('jd'),
+      'p'        => array('p'),
+      'p_err'    => array('p_err'),
+      'pa'        => array('pa'),
+      'pa_err'    => array('pa_err'),
+      'tel'        => array('tel'),
+    ),
+    'foreign keys' => array(
+      'blazar_id' => array(
+        'table'   => 'polar_objects',
+        'columns' => array('blazar_id' => 'id'),
+      ),
+      'creator_id' => array(
+        'table'   => 'users',
+        'columns' => array('creator_id' => 'uid'),
+      ),
+    ),
+    'primary key' => array('jd','blazar_id'),
+  );
+  return $schema;
+}
